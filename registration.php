@@ -1,33 +1,51 @@
 <?php
 include 'db.php';
 session_start();
+function is_strong_password($password) {
+    return preg_match('/[A-Z]/', $password) &&          
+           preg_match('/[a-z]/', $password) &&         
+           preg_match('/[0-9]/', $password) &&         
+           preg_match('/[\W_]/', $password) &&         
+           strlen($password) >= 8;                    
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT); // Hashing the password
+    $password = $_POST['password'];
 
-    // Check if email already exists
-    $stmt = $conn->prepare("SELECT email FROM users WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $stmt->store_result();
-
-    if ($stmt->num_rows > 0) {
-        echo "<p style='color: red;'>Email already exists.</p>";
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo "<p style='color: #bb86fc;'>Invalid email format.</p>";
+    } elseif (!is_strong_password($password)) {
+        echo "<p style='color: #bb86fc;'>Password must be at least 8 characters long, include an uppercase letter, a lowercase letter, a number, and a special character.</p>";
     } else {
-        // Insert new user
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $username, $email, $password);
-        if ($stmt->execute()) {
-            echo "<p style='color: green;'>Registration successful!</p>";
+        $password = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("SELECT email FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows > 0) {
+            echo "<p style='color: #bb86fc;'>Email already exists.</p>";
         } else {
-            echo "<p style='color: red;'>Error: " . htmlspecialchars($stmt->error) . "</p>";
+            $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+            $stmt->bind_param("sss", $username, $email, $password);
+            if ($stmt->execute()) {
+                echo "<p style='color: green;'>Registration successful!</p>";
+            } else {
+                echo "<p style='color: #bb86fc;'>Error: " . htmlspecialchars($stmt->error) . "</p>";
+            }
         }
+
+        $stmt->close();
     }
-    $stmt->close();
 }
 ?>
+
+
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -52,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            width: 90%; /* Responsive width */
-            max-width: 400px; /* Maximum width */
+            width: 90%; 
+            max-width: 400px;
         }
         input[type="text"],
         input[type="email"],
@@ -86,11 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #bb86fc;
         }
 
-        /* Media Queries for responsiveness */
         @media (max-width: 480px) {
             form {
-                padding: 15px; /* Adjust padding for smaller screens */
-                box-shadow: none; /* Remove shadow on very small screens */
+                padding: 15px;
+                box-shadow: none; 
             }
         }
     </style>
